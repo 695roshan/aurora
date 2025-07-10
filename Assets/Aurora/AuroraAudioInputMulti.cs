@@ -5,14 +5,26 @@ public class AudioChannel
 {
     public string name;
     public AudioSource source;
+
     [HideInInspector] public float[] spectrum = new float[1024];
-    [HideInInspector] public float amplitude;
+    [HideInInspector] public float[] samples = new float[1024];
+    [HideInInspector] public float amplitude;  // RMS amplitude from waveform
+    [HideInInspector] public float energy;  // sum of magnitudes across all frequencies —
+                                                        // rough proxy for energy in the signal at that frame
+                                                        // or the intensity of sound across frequencies.
 }
 
 public class AuroraAudioInputMulti : MonoBehaviour
 {
     public AudioChannel[] channels;
-    [Range(64, 8192)] public int spectrumSize = 1024;
+    [Range(64, 8192)] public int spectrumSize = 1024; // number of samples to divide the total freq into
+
+    private int sampleRate;
+
+    void Start()
+    {
+        sampleRate = AudioSettings.outputSampleRate;
+    }
 
     void Update()
     {
@@ -20,18 +32,43 @@ public class AuroraAudioInputMulti : MonoBehaviour
         {
             if (channel.source == null || !channel.source.isPlaying) continue;
 
+            // --- Spectrum Data (Frequency Domain) ---
             if (channel.spectrum == null || channel.spectrum.Length != spectrumSize)
-            {
                 channel.spectrum = new float[spectrumSize]; // Ensure it exists and has correct size
-            }
-            channel.source.GetSpectrumData(channel.spectrum, 0, FFTWindow.BlackmanHarris);
+
+            channel.source.GetSpectrumData(channel.spectrum, 0, FFTWindow.BlackmanHarris); // fills channel.spectrum
             float sum = 0f;
             for (int i = 0; i < channel.spectrum.Length; i++)
             {
                 sum += channel.spectrum[i];
             }
-            channel.amplitude = Mathf.Clamp01(sum * 10f);  // Amplify for better range
+            channel.energy = Mathf.Clamp01(sum * 10f);  // Amplify for better range
+
+            // --- Waveform Data (Time Domain) ---
+            if (channel.samples == null || channel.samples.Length != spectrumSize)
+                channel.samples = new float[spectrumSize];
+
+            channel.source.GetOutputData(channel.samples, 0);
+
+            // --- RMS Amplitude Calculation ---
+            sum = 0f;
+            for (int i = 0; i < channel.samples.Length; i++)
+            {
+                sum += channel.samples[i] * channel.samples[i];
+            }
+            float rms = Mathf.Sqrt(sum / channel.samples.Length);
+            channel.amplitude = Mathf.Clamp01(rms * 10f); // Scale for usability
         }
+    }
+
+    public float GetChannelEnergy(string name)
+    {
+        foreach (var ch in channels)
+        {
+            if (ch.name.ToLower() == name.ToLower())
+                return ch.energy;
+        }
+        return 0f;
     }
 
     public float GetChannelAmplitude(string name)
@@ -51,7 +88,7 @@ public class AuroraAudioInputMulti : MonoBehaviour
             if (ch.name.ToLower() == name.ToLower())
                 return ch.spectrum;
         }
-        return null; // Return null if channel not found
+        return null;
     }
 
     public float[] GetCombinedSpectrum()
@@ -71,13 +108,16 @@ public class AuroraAudioInputMulti : MonoBehaviour
             }
         }
 
-        //// Optional: normalize or scale
-        //for (int i = 0; i < size; i++)
-        //{
-        //    combined[i] = Mathf.Clamp01(combined[i] * 2f); // scale if needed
-        //}
-
         return combined;
     }
 
+    public float[] GetFrequencies()
+    {
+        float[] freqs = new float[spectrumSize];
+        for (int i = 0; i < spectrumSize; i++)
+        {
+            freqs[i] = i * (sampleRate / 2f) / spectrumSize;
+        }
+        return freqs;
+    }
 }
