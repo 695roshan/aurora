@@ -16,7 +16,7 @@ public class AuroraShaderControllerMulti : MonoBehaviour
 
     void Start()
     {
-        smoothDistortY=10f;
+        smoothDistortY = 10f;
         auroraMaterial.SetFloat("_GradientOffset", -0.22f);
         auroraMaterial.SetFloat("_AuroraPower", 4f);
         auroraMaterial.SetFloat("_AuroraNoiseScale", 100f);
@@ -59,7 +59,7 @@ public class AuroraShaderControllerMulti : MonoBehaviour
         auroraMaterial.SetFloat("_GradientOffset", smoothGradientOffset);
 
         // === BASS + DRUMS→ STAR POWER (discrete toggle between 45 and 50) ===
-        if (Mathf.Clamp01((bassEnergy + drumsEnergy) *0.5f) > 0.5f && starTwinkleCooldown <= 0f)
+        if (Mathf.Clamp01((bassEnergy + drumsEnergy) * 0.5f) > 0.5f && starTwinkleCooldown <= 0f)
         {
             starIsBright = !starIsBright;
             starTwinkleCooldown = 0.5f; // 500ms toggle interval
